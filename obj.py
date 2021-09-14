@@ -66,8 +66,7 @@ class Texture(object):
         image.close()
 
     def get_color(self, tx, ty):
-        x = int(tx * self.width) - 1
-        y = int(ty * self.height) - 1
-        # print(tx, ty, x, y)
+        x = int(tx * self.width)
+        y = int(ty * self.height)
 
         return self.pixels[y][x]

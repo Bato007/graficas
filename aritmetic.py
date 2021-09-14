@@ -72,8 +72,8 @@ def pointProduct(A, B):
 
 def barycentric(A, B, C, P):
     cx, cy, cz = crossProduct(
-        V3(B.x - A.x, C.x - A.x, A.x - P.x),
-        V3(B.y - A.y, C.y - A.y, A.y - P.y)
+        V3(C.x - A.x, B.x - A.x, A.x - P.x),
+        V3(C.y - A.y, B.y - A.y, A.y - P.y)
     )
 
     if cz == 0:
@@ -83,7 +83,7 @@ def barycentric(A, B, C, P):
     v = cy/cz
     w = 1 - (u + v)
 
-    return u, v, w
+    return w, v, u
 
 
 def getNormal(A, B, C):
@@ -96,6 +96,7 @@ def getNormal(A, B, C):
 
 def getNormalDirection(A, B, C):
     return getDirection(getNormal(A, B, C))
+
 
 def minbox(A, B, C):
     xs = [A.x, B.x, C.x]

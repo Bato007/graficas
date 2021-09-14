@@ -215,7 +215,7 @@ def paintTriangle(A, B, C, texture_coords=None, paint=None):
 
             if w < 0 or v < 0 or u < 0:
                 continue
-
+            
             # Esta dentro del triangulo
             normal = ar.getNormalDirection(A, B, C)
 
@@ -284,6 +284,6 @@ def glPaintModel(filename, traslation=(0, 0, 0), scale=(1, 1, 1), texturename=No
 
 
 glCreateWindow(800, 600)
-# glPaintModel('./models/earth.obj', (800, 600, 0), (0.5, 0.5, 1), './models/earth.bmp')
-glPaintModel('./models/model.obj', (1, 1, 0), (300, 300, 300), './models/model.bmp')
+glPaintModel('./models/earth.obj', (800, 600, 0), (0.5, 0.5, 1), './models/earth.bmp')
+# glPaintModel('./models/model.obj', (1, 1, 0), (300, 300, 300), './models/model.bmp')
 glFinish('out')
