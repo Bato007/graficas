@@ -4,16 +4,8 @@ class V3(object):
         self.y = y
         self.z = z
 
-
-class Square(object):
-    def __init__(self, A, B, C, D):
-        self.A = A
-        self.B = B
-        self.C = C
-        self.D = D
-
-    def getVertices(self):
-        return self.A, self.B, self.C, self.D
+    def __repr__(self):
+        return 'V3(%s, %s, %s)' %(self.x, self.y, self.z)
 
 
 class Triangle(object):
@@ -21,6 +13,9 @@ class Triangle(object):
         self.A = A
         self.B = B
         self.C = C
+    
+    def __repr__(self):
+        return 'T(%s, %s, %s)' %(self.A, self.B, self.C)
 
     def getVertices(self):
         return self.A, self.B, self.C
@@ -57,7 +52,7 @@ def getDirection(A):
         A.y / length,
         A.z / length
     )
-    
+
 
 def crossProduct(A, B):
     cx = (A.y * B.z) - (A.z * B.y)

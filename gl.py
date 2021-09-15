@@ -1,7 +1,7 @@
 import struct
 from obj import Obj, Texture
-import aritmetic as ar
-from aritmetic import V3, Square, Triangle
+import vector as ar
+from vector import V3, Triangle
 
 
 def char(c):
@@ -35,22 +35,12 @@ class Renderer(object):
         self.clear_color = BLACK
         self.clear()
 
-        # Para los puertos
-        self.port_width = width
-        self.port_height = height
-        self.x = 0
-        self.y = 0
-
-        self.xm = round(width/2)
-        self.ym = round(height/2)
-
         # Para modelos
-        self.msquares = []
         self.mtriangles = []
 
         # Para texturas
         self.texture = None
-        self.tsquares = []
+        self.currentt = None
         self.ttriangles = []
 
         # Modelos en 3d
@@ -139,8 +129,12 @@ class Renderer(object):
                 tvertices.append(tP)
 
             if size == 4:
-                self.msquares.append(Square(*vertices))
-                self.tsquares.append(Square(*tvertices))
+                A, B, C, D = vertices
+                tA, tB, tC, tD = tvertices
+                self.mtriangles.append(Triangle(A, B, C))
+                self.mtriangles.append(Triangle(A, C, D))
+                self.ttriangles.append(Triangle(tA, tB, tC))
+                self.ttriangles.append(Triangle(tA, tC, tD))
             elif size == 3:
                 self.mtriangles.append(Triangle(*vertices))
                 self.ttriangles.append(Triangle(*tvertices))
@@ -204,14 +198,13 @@ def glFinish(name):
     frame.write(str(name) + '.bmp')
 
 
-def paintTriangle(A, B, C, texture_coords=None, paint=None):
+def paintTriangle(A, B, C):
     xmin, xmax, ymin, ymax = ar.minbox(A, B, C)
 
     # Se pinta el triangulo
     for x in range(xmin, xmax + 1):
         for y in range(ymin, ymax + 1):
-            P = V3(x, y)
-            w, v, u = ar.barycentric(A, B, C, P)
+            w, v, u = ar.barycentric(A, B, C, V3(x, y))
 
             if w < 0 or v < 0 or u < 0:
                 continue
@@ -230,15 +223,15 @@ def paintTriangle(A, B, C, texture_coords=None, paint=None):
                 base = 255
 
             # Aqui se decide como se va a pintar
-            if frame.texture:
-                tA, tB, tC = texture_coords
+            if frame.currentt:
+                tA, tB, tC = frame.currentt
                 tx = tA.x * w + tB.x * v + tC.x * u
                 ty = tA.y * w + tB.y * v + tC.y * u
                 tcolor = frame.texture.get_color(tx, ty)
                 b, g, r = [int(c * intensity) if intensity > 0 else 0 for c in tcolor]
                 paint_color = color(r, g, b)
             else:
-                paint_color = paint or color(base, base, base)
+                paint_color = color(base, base, base)
 
             z = (A.z * w) + (B.z * v) + (C.z * u)
 
@@ -250,40 +243,22 @@ def paintTriangle(A, B, C, texture_coords=None, paint=None):
                 pass
 
 
-def paintSquare(A, B, C, D, tA, tB, tC, tD):
-    if frame.texture:
-        paintTriangle(A, B, C, (tA, tB, tC))
-        paintTriangle(A, C, D, (tA, tC, tD))
-    else:
-        paintTriangle(A, B, C)
-        paintTriangle(A, C, D)
-
-
 def glPaintModel(filename, traslation=(0, 0, 0), scale=(1, 1, 1), texturename=None):
     frame.load3d(filename, traslation, scale)
     if texturename:
         frame.load_texture(texturename)
-    squares = frame.msquares
     triangles = frame.mtriangles
-    tsquares = frame.tsquares
     ttriangles = frame.ttriangles
 
-    # Se pintan los cuadrados
-    for i in range(len(squares)):
-        A, B, C, D = squares[i].getVertices()
-        tA, tB, tC, tD = tsquares[i].getVertices()
-        paintSquare(A, B, C, D, tA, tB, tC, tD)
     # Se pintan los triangulos
     for i in range(len(triangles)):
         A, B, C = triangles[i].getVertices()
         tA, tB, tC = ttriangles[i].getVertices()
-        if frame.texture: # Se le pasa la textura
-            paintTriangle(A, B, C, (tA, tB, tC))
-        else: 
-            paintTriangle(A, B, C)
+        # Se le pasa la textura
+        frame.currentt = (tA, tB, tC) if frame.texture else None
+        paintTriangle(A, B, C)
 
 
-glCreateWindow(800, 600)
-glPaintModel('./models/earth.obj', (800, 600, 0), (0.5, 0.5, 1), './models/earth.bmp')
+# glPaintModel('./models/earth.obj', (800, 600, 0), (0.5, 0.5, 1), './models/earth.bmp')
 # glPaintModel('./models/model.obj', (1, 1, 0), (300, 300, 300), './models/model.bmp')
-glFinish('out')
+
