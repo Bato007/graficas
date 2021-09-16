@@ -11,6 +11,7 @@ class Obj(object):
 
         self.vertices = []
         self.tvertices = []
+        self.normal = []
         self.faces = []
         self.read()
 
@@ -27,6 +28,10 @@ class Obj(object):
                         )
                     elif prefix == 'vt':
                         self.tvertices.append(
+                            list(map(float, value.split(' ')))
+                        )
+                    elif prefix == 'vn':
+                        self.normal.append(
                             list(map(float, value.split(' ')))
                         )
                     elif prefix == 'f':
