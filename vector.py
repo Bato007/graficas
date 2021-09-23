@@ -99,3 +99,11 @@ def minbox(A, B, C):
     xs.sort()
     ys.sort()
     return xs[0], xs[-1], ys[0], ys[-1]
+
+
+def promDistance(A, B, C):
+    ab = vectorLen(subVector(A, B))
+    ac = vectorLen(subVector(A, C))
+    bc = vectorLen(subVector(B, C))
+
+    return (ab + ac + bc)/3

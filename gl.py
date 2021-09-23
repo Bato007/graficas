@@ -1,4 +1,4 @@
-import struct
+import struct, random
 from math import sin, cos
 from obj import Obj, Texture
 import vector as ar
@@ -50,6 +50,11 @@ class Renderer(object):
         # Para normales
         self.currentn = None
         self.normals = []
+
+        # Shaders
+        self.activeShader = None
+        self.hasnormalmap = False
+        self.normalmap = None
 
         # Modelos en 3d
         self.light = V3(0, 0, 1)
@@ -176,11 +181,11 @@ class Renderer(object):
         ])
 
 
-    def loadViewPortMatrix(self, x, y):
+    def loadViewPortMatrix(self, x=0, y=0):
         self.ViewPort = Matrix([
             [self.widthm, 0, 0, x + self.widthm],
             [0, self.heightm, 0, y + self.heightm],
-            [0, 0, 1, 0],
+            [0, 0, 128, 128],
             [0, 0, 0, 1]
         ])
 
@@ -205,8 +210,7 @@ class Renderer(object):
             [1]
         ])
         # Se realizan las transformaciones
-        transformed = self.View * self.Model * temp 
-        # transformed = self.ViewPort * self.Projection * transformed
+        transformed = self.Matrix * temp 
         result = transformed.matrix
         x = round(result[0][0]/result[3][0])
         y = round(result[1][0]/result[3][0])
@@ -216,11 +220,18 @@ class Renderer(object):
 
     def load_texture(self, filename):
         self.texture = Texture(filename)
+    
+
+    def load_normal(self, filename):
+        self.normalmap = Texture(filename)
+        self.hasnormalmap = True
 
 
     def load3d(self, filename, traslate=(0, 0, 0), scale=(1, 1, 1), rotate=(0, 0, 0)):
         model = Obj(filename)
         self.loadModelMatrix(traslate, scale, rotate)
+        self.Matrix = self.ViewPort * self.Projection * self.View * self.Model
+        normall = len(model.normal) > 0
 
         for face in model.faces:
             size = len(face)
@@ -246,27 +257,37 @@ class Renderer(object):
                 tvertices.append(tP)
 
                 # ---NORMALES---
-                tn = face[i][2] - 1
-                normal = model.normal[tn]      
+                if normall:
+                    tn = face[i][2] - 1
+                    normal = model.normal[tn]      
 
-                # Ahora se convierte en V3 y se mete
-                nP = V3(*normal)
-                normale.append(nP)
+                    # Ahora se convierte en V3 y se mete
+                    nP = V3(*normal)
+                    normale.append(nP)
 
             if size == 4:
                 A, B, C, D = vertices
                 tA, tB, tC, tD = tvertices
-                nA, nB, nC, nD = normale
                 self.mtriangles.append(Triangle(A, B, C))
                 self.mtriangles.append(Triangle(A, C, D))
                 self.ttriangles.append(Triangle(tA, tB, tC))
                 self.ttriangles.append(Triangle(tA, tC, tD))
-                self.normals.append(Triangle(nA, nB, nC))
-                self.normals.append(Triangle(nA, nC, nD))
+                if normall:
+                    nA, nB, nC, nD = normale
+                    self.normals.append(Triangle(nA, nB, nC))
+                    self.normals.append(Triangle(nA, nC, nD))
             elif size == 3:
                 self.mtriangles.append(Triangle(*vertices))
                 self.ttriangles.append(Triangle(*tvertices))
-                self.normals.append(Triangle(*normale))
+                if normall:
+                    self.normals.append(Triangle(*normale))
+
+
+def aux(A, B, C):
+    normal = ar.getNormalDirection(A, B, C)
+
+    # Luego la intensidad con la que se pinta
+    return ar.pointProduct(normal, frame.light)
 
 
 def shader(**kwargs):
@@ -282,9 +303,90 @@ def shader(**kwargs):
     return color(r, g, b)
 
 
+def mapshader(**kwargs):
+    tx, ty = kwargs['tcords']
+
+    tcolor = frame.texture.get_color(tx, ty)
+    ncolor = frame.normalmap.get_color(tx, ty)
+    z, y, x = [int(c)/255 for c in (ncolor)]
+    ncolor = V3(x, y, z)
+    intensity = ar.pointProduct(ncolor, frame.light)
+    
+    b, g, r = [int(c * intensity) if intensity > 0 else 0 for c in tcolor]
+    return color(r, g, b)
+
+
+def fragment(**kwargs):
+    w, v, u = kwargs['bar']
+    tx, ty = kwargs['tcords']
+    nA, nB, nC = kwargs['normals']
+
+    grey = int(ty * 256)
+    tcolor = color(grey, 100, 100)
+
+    iA, iB, iC = [ar.pointProduct(n, frame.light) for n in (nA, nB, nC)]
+    intensity = w*iA + v*iB + u*iC
+
+    if intensity > 0.85:
+        intensity = 1
+    elif intensity > 0.60:
+        intensity = 0.80
+    elif intensity > 0.45:
+        intensity = 0.60
+    elif intensity > 0.30:
+        intensity = 0.45
+    elif intensity > 0.15:
+        intensity = 0.30
+    else:
+        intensity = 0
+
+    b, g, r = [int(c * intensity) if intensity > 0 else 0 for c in tcolor]
+
+    return color(r, g, b)
+
+
+def grass(**kwargs):
+    w, v, u = kwargs['bar']
+    tx, ty = kwargs['tcords']
+    nA, nB, nC = kwargs['normals']
+
+    iA, iB, iC = [ar.pointProduct(n, frame.light) for n in (nA, nB, nC)]
+    intensity = w*iA + v*iB + u*iC
+
+    if ty > 0.5 or ty < 0:
+        tcolor = color(25, 25, 112) if random.randint(0, 1000) < 999 else color(255, 205, 60)
+    else:
+        tcolor = color(0, 154, 23) if random.randint(0, 1000) < 990 else color(155, 118, 83)
+
+    b, g, r = [int(c * intensity) if intensity > 0 else 0 for c in tcolor]
+
+    return color(r, g, b)
+
+
+def star(**kwargs):
+    w, v, u = kwargs['bar']
+    tx, ty = kwargs['tcords']
+    nA, nB, nC = kwargs['normals']
+
+    iA, iB, iC = [ar.pointProduct(n, frame.light) for n in (nA, nB, nC)]
+    intensity = (w*iA + v*iB + u*iC)*tx*ty
+
+    tcolor = color(200, 200, 200)
+
+    b, g, r = [int(c * intensity) if intensity > 0 else 0 for c in tcolor]
+
+    return color(r, g, b)
+
+def normalShader(tx, ty, intensity):
+    tcolor = frame.texture.get_color(tx, ty)
+    b, g, r = [int(c * intensity) if intensity > 0 else 0 for c in tcolor]
+    return color(r, g, b)
+
+
 def glCreateWindow(width, height):
     global frame
     frame = Renderer(width, height)
+    frame.activeShader = shader
 
 
 def line(A, B):
@@ -341,8 +443,11 @@ def glFinish(name):
 
 
 def paintTriangle(A, B, C):
+    has_normals = len(frame.normals) > 0
     xmin, xmax, ymin, ymax = ar.minbox(A, B, C)
-    nA, nB, nC = frame.currentn
+    pdabc = ar.promDistance(A, B, C) if frame.activeShader == grass else None
+    if has_normals:
+        nA, nB, nC = frame.currentn
 
     # Se pinta el triangulo
     for x in range(xmin, xmax + 1):
@@ -355,27 +460,43 @@ def paintTriangle(A, B, C):
             # Aqui se decide como se va a pintar
             if frame.currentt:
                 tA, tB, tC = frame.currentt
-                tx = tA.x * w + tB.x * v + tC.x * u
-                ty = tA.y * w + tB.y * v + tC.y * u
-                paint_color = shader(
-                    bar=(w, v, u),
-                    tcords=(tx, ty),
-                    normals=(nA, nB, nC)
-                )
+                tx = (tA.x * w + tB.x * v + tC.x * u)
+                ty = (tA.y * w + tB.y * v + tC.y * u)
+
+                if has_normals:
+                    paint_color = frame.activeShader(
+                        bar=(w, v, u),
+                        tcords=(tx, ty),
+                        normals=(nA, nB, nC)
+                    )
+                
+                else:
+                    intensity = aux(A, B, C)
+                    paint_color = normalShader(tx, ty, intensity)
+
             else:
+
+                if has_normals:
+                    tx = ((A.x * w) + (B.x * v) + (C.x * u))/frame.width
+                    ty = ((A.y * w) + (B.y * v) + (C.y * u))/frame.height
+
+                    paint_color = frame.activeShader(
+                        distance=(pdabc),
+                        bar=(w, v, u),
+                        tcords=(tx, ty),
+                        normals=(nA, nB, nC)
+                    )
+                else:
                 # Esta dentro del triangulo
-                normal = ar.getNormalDirection(A, B, C)
+                    intensity = aux(A, B, C)
+                    base = round(200*intensity)
 
-                # Luego la intensidad con la que se pinta
-                intensity = ar.pointProduct(normal, frame.light)
-
-                base = round(200 * intensity)
-
-                if (base < 0):
-                    continue
-                elif (base > 255):
-                    base = 255
-                paint_color = color(base, base, base)
+                    if (base < 0):
+                        continue
+                    elif (base > 255):
+                        base = 255
+                        
+                    paint_color = color(base, base, base)
 
             z = (A.z * w) + (B.z * v) + (C.z * u)
 
@@ -387,22 +508,33 @@ def paintTriangle(A, B, C):
                 pass
 
 
-def glPaintModel(filename, traslation=(0, 0, 0), scale=(1, 1, 1), rotate=(0, 0, 0), texturename=None):
+def glPaintModel(
+    filename, 
+    traslation=(0, 0, 0), 
+    scale=(1, 1, 1), 
+    rotate=(0, 0, 0), 
+    texturename=None,
+    normalname=None
+):
     frame.load3d(filename, traslation, scale, rotate)
     if texturename:
         frame.load_texture(texturename)
+    if normalname:
+        frame.load_normal(normalname)
     triangles = frame.mtriangles
     ttriangles = frame.ttriangles
     normales = frame.normals
+    has_normal = len(normales) > 0
 
     # Se pintan los triangulos
     for i in range(len(triangles)):
         A, B, C = triangles[i].getVertices()
         tA, tB, tC = ttriangles[i].getVertices()
-        nA, nB, nC = normales[i].getVertices()
+        if has_normal:
+            nA, nB, nC = normales[i].getVertices()
         # Se le pasa la textura
         frame.currentt = (tA, tB, tC) if frame.texture else None
-        frame.currentn = (nA, nB, nC)
+        frame.currentn = (nA, nB, nC) if has_normal else None
         paintTriangle(A, B, C)
 
 
@@ -410,19 +542,50 @@ def initCamera(eye, center, up):
     frame.lookAt(eye, center, up)
 
 
-glCreateWindow(1000, 1000)
+def activeShader(shader):
+    frame.activeShader = shader
+
+
+glCreateWindow(600, 600)
 initCamera(V3(0, 0, 5), V3(0, 0, 0), V3(0, 1, 0))
-a = 3.14
-# glPaintModel(
-#     './models/earth.obj', 
-#     (800, 600, 0), 
-#     (0.5, 0.5, 1), 
-#     (a, a, 0),
-#     './models/earth.bmp')
+pi = 3.14
+
+activeShader(fragment)
 glPaintModel(
-    './models/model.obj', 
-    (300, 300, 0), 
-    (200, 200, 200),
-    (0, 0, 0),
+    './project/sphere.obj', 
+    (-1/2, 1/12, 1), 
+    (1/16, 1/16, 1/2),
+    (0, 0, 0))
+
+activeShader(star)
+glPaintModel(
+    './project/star.obj', 
+    (1/2, 1/2, 0), 
+    (1/16, 1/16, 1/2),
+    (0, 0, 0))
+
+activeShader(grass)
+glPaintModel(
+    './project/block.obj', 
+    (0, -1, 0), 
+    (1, 2, 1/10),
+    (0, 0, 0))
+
+activeShader(shader)
+glPaintModel(
+    './project/free_head.obj', 
+    (-1/2, -5, 0), 
+    (2, 2, 1),
+    (pi/8, 2*pi/3, 0),
     './models/model.bmp')
+
+# activeShader(mapshader)
+# glPaintModel(
+#     './project/dog.obj', 
+#     (0, 0, 1), 
+#     (1/12, 1/12, 1/2),
+#     (0, pi/8, 0),
+#     './project/color.bmp',
+#     './project/normal.bmp')
+
 glFinish('out')

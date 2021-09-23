@@ -67,12 +67,3 @@ class Matrix(object):
                 j = (j + 1) % (self.m) 
 
         return Matrix(result)
-
-# a = Matrix([[3,2,3],
-#         [1,2,3]])
-
-# b = Matrix([[1,0,0],
-#             [0,1,0],
-#             [0,0,1]])
-
-# print(a * b)
