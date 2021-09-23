@@ -579,13 +579,13 @@ glPaintModel(
     (pi/8, 2*pi/3, 0),
     './models/model.bmp')
 
-# activeShader(mapshader)
-# glPaintModel(
-#     './project/dog.obj', 
-#     (0, 0, 1), 
-#     (1/12, 1/12, 1/2),
-#     (0, pi/8, 0),
-#     './project/color.bmp',
-#     './project/normal.bmp')
+activeShader(mapshader)
+glPaintModel(
+    './project/dog.obj', 
+    (0, 0, 1), 
+    (1/12, 1/12, 1/2),
+    (0, pi/8, 0),
+    './project/color.bmp',
+    './project/normal.bmp')
 
 glFinish('out')
